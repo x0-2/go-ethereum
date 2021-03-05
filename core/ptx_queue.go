@@ -60,3 +60,27 @@ type ptxLookup struct {
 	lock    sync.RWMutex
 	remotes map[common.Hash]*types.Transaction
 }
+
+// newPtxLookup returns a new ptxLookup structure.
+func newPtxLookup() *ptxLookup {
+	return &ptxLookup{
+		remotes: make(map[common.Hash]*types.Transaction),
+	}
+}
+
+// Range calls f on each key and value present in the map. The callback passed
+// should return the indicator whether the iteration needs to be continued.
+// Callers need to specify which set (or both) to be iterated.
+func (t *ptxLookup) Range(f func(hash common.Hash, tx *types.Transaction, local bool) bool, local bool, remote bool) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	if remote {
+		for key, value := range t.remotes {
+			if !f(key, value, false) {
+				return
+			}
+		}
+	}
+}
+
