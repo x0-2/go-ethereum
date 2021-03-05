@@ -99,3 +99,19 @@ func (t *ptxLookup) GetRemote(hash common.Hash) *types.Transaction {
 	return t.remotes[hash]
 }
 
+// Count returns the current number of transactions in the lookup.
+func (t *ptxLookup) Count() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return len(t.remotes)
+}
+
+// RemoteCount returns the current number of remote transactions in the lookup.
+func (t *ptxLookup) RemoteCount() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return len(t.remotes)
+}
+
