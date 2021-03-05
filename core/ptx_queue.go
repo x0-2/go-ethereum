@@ -84,3 +84,18 @@ func (t *ptxLookup) Range(f func(hash common.Hash, tx *types.Transaction, local 
 	}
 }
 
+// Get returns a transaction if it exists in the lookup, or nil if not found.
+func (t *ptxLookup) Get(hash common.Hash) *types.Transaction {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+	return t.remotes[hash]
+}
+
+// GetRemote returns a transaction if it exists in the lookup, or nil if not found.
+func (t *ptxLookup) GetRemote(hash common.Hash) *types.Transaction {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return t.remotes[hash]
+}
+
