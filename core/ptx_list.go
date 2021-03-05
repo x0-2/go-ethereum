@@ -74,6 +74,44 @@ func (m *ptxReadyMap) Forward(threshold uint64) types.Transactions {
 	return removed
 }
 
+// Filter iterates over the list of pending transactions and removes all of them
+// for which the specified function evaluates to true.
+// Filter, as opposed to 'filter', re-initialises the heap after the operation is done.
+// If you want to do several consecutive filterings, it's therefore better to first
+// do a .filter(func1) followed by .Filter(func2) or reheap()
+func (m *ptxReadyMap) Filter(filter func(*types.Transaction) bool) types.Transactions {
+	removed := m.filter(filter)
+	// If transactions were removed, the heap and cache are ruined
+	if len(removed) > 0 {
+		m.reheap()
+	}
+	return removed
+}
+
+func (m *ptxReadyMap) reheap() {
+	*m.index = make([]uint64, 0, len(m.items))
+	for idx := range m.items {
+		*m.index = append(*m.index, idx)
+	}
+	heap.Init(m.index)
+	m.cache = nil
+}
+
+func (m *ptxReadyMap) filter(filter func(*types.Transaction) bool) types.Transactions {
+	var removed types.Transactions
+
+	// Collect all the transactions to filter out
+	for nonce, tx := range m.items {
+		if filter(tx) {
+			removed = append(removed, tx)
+			delete(m.items, nonce)
+		}
+	}
+	if len(removed) > 0 {
+		m.cache = nil
+	}
+	return removed
+}
 
 
 
