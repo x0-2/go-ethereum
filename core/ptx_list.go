@@ -238,6 +238,36 @@ func (l *ptxList) Cap(threshold int) types.Transactions {
 	return l.txs.Cap(threshold)
 }
 
+func (l *ptxList) Remove(tx *types.Transaction) (bool, types.Transactions) {
+	nonce := tx.Nonce()
+	if removed := l.txs.Remove(nonce); !removed {
+		return false, nil
+	}
+	if l.strict {
+		return true, l.txs.Filter(func(tx *types.Transaction) bool { return tx.Nonce() > nonce })
+	}
+	return true, nil
+}
+
+func (l *ptxList) Ready(start uint64) types.Transactions {
+	return l.txs.Ready(start)
+}
+
+func (l *ptxList) Len() int {
+	return l.txs.Len()
+}
+
+func (l *ptxList) Empty() bool {
+	return l.Len() == 0
+}
+
+func (l *ptxList) Flatten() types.Transactions {
+	return l.txs.Flatten()
+}
+
+func (l *ptxList) LastElement() *types.Transaction {
+	return l.txs.LastElement()
+}
 
 
 
