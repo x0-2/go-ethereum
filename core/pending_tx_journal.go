@@ -151,3 +151,14 @@ func (journal *pendingTxJournal) rotate(all map[common.Address]types.Transaction
 
 	return nil
 }
+
+// close flushes the pending transaction journal contents to disk and closes the file.
+func (journal *pendingTxJournal) close() error {
+	var err error
+
+	if journal.writer != nil {
+		err = journal.writer.Close()
+		journal.writer = nil
+	}
+	return err
+}
