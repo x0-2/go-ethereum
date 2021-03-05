@@ -2,7 +2,11 @@ package core
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"io"
+	"os"
 )
 
 // errNoPendingActiveJournal is returned if a pending transaction is attempted to be inserted
@@ -30,4 +34,66 @@ func newPendingTxJournal(path string) *pendingTxJournal {
 	return &pendingTxJournal{
 		path: path,
 	}
+}
+
+// load parses a pending transaction journal dump from disk, loading its contents into
+// the specified pool.
+func (journal *pendingTxJournal) load(add func([]*types.Transaction) []error) error {
+	// Skip the parsing if the journal file doesn't exist at all
+	if _, err := os.Stat(journal.path); os.IsNotExist(err) {
+		return nil
+	}
+	// Open the journal for loading any past penidng transactions
+	input, err := os.Open(journal.path)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+
+	// Temporarily discard any journal additions (don't double add on load)
+	journal.writer = new(pDevNull)
+	defer func() { journal.writer = nil }()
+
+	// Inject all transactions from the journal into the pool
+	stream := rlp.NewStream(input, 0)
+	total, dropped := 0, 0
+
+	// Create a method to load a limited batch of pending transactions and bump the
+	// appropriate progress counters. Then use this method to load all the
+	// journaled pending transactions in small-ish batches.
+	loadBatch := func(txs types.Transactions) {
+		for _, err := range add(txs) {
+			if err != nil {
+				log.Debug("Failed to add journaled pending transaction", "err", err)
+				dropped++
+			}
+		}
+	}
+	var (
+		failure error
+		batch   types.Transactions
+	)
+	for {
+		// Parse the next transaction and terminate on error
+		tx := new(types.Transaction)
+		if err = stream.Decode(tx); err != nil {
+			if err != io.EOF {
+				failure = err
+			}
+			if batch.Len() > 0 {
+				loadBatch(batch)
+			}
+			break
+		}
+		// New pending transaction parsed, queue up for later,
+		//import if threshold is reached
+		total++
+		if batch = append(batch, tx); batch.Len() > 1024 {
+			loadBatch(batch)
+			batch = batch[:0]
+		}
+	}
+	log.Info("Loaded local pending transaction journal", "pending transactions", total, "dropped", dropped)
+
+	return failure
 }
