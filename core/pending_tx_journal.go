@@ -24,3 +24,10 @@ type pendingTxJournal struct {
 	path   string         // Filesystem path to store the pending transactions at
 	writer io.WriteCloser // Output stream to write new pending transactions into
 }
+
+// newPendingTxJournal creates a new pending transaction journal to
+func newPendingTxJournal(path string) *pendingTxJournal {
+	return &pendingTxJournal{
+		path: path,
+	}
+}
