@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -106,5 +107,47 @@ func (journal *pendingTxJournal) insert(tx *types.Transaction) error {
 	if err := rlp.Encode(journal.writer, tx); err != nil {
 		return err
 	}
+	return nil
+}
+
+// rotate regenerates the pending transaction journal based on the current contents of
+// the transaction pool.
+func (journal *pendingTxJournal) rotate(all map[common.Address]types.Transactions) error {
+	// Close the current journal (if any is open)
+	if journal.writer != nil {
+		if err := journal.writer.Close(); err != nil {
+			return err
+		}
+		journal.writer = nil
+	}
+	// Generate a new journal with the contents of the current pool
+	replacement, err := os.OpenFile(journal.path+".pending", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	journaled := 0
+	for _, txs := range all {
+		for _, tx := range txs {
+			if err = rlp.Encode(replacement, tx); err != nil {
+				replacement.Close()
+				return err
+			}
+		}
+		journaled += len(txs)
+	}
+	replacement.Close()
+
+	// todo: filename
+	// Replace the live journal with the newly generated one
+	if err = os.Rename(journal.path+".pending", journal.path); err != nil {
+		return err
+	}
+	sink, err := os.OpenFile(journal.path, os.O_WRONLY|os.O_APPEND, 0755)
+	if err != nil {
+		return err
+	}
+	journal.writer = sink
+	log.Info("Regenerated local pending transaction journal", "transactions", journaled, "accounts", len(all))
+
 	return nil
 }
