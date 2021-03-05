@@ -3,6 +3,7 @@ package core
 import (
 	"container/heap"
 	"github.com/ethereum/go-ethereum/core/types"
+	"math/big"
 	"sort"
 )
 
@@ -203,9 +204,39 @@ func (m *ptxReadyMap) LastElement() *types.Transaction {
 	return cache[len(cache)-1]
 }
 
+type ptxList struct {
+	strict bool
+	txs    *ptxReadyMap
+}
 
+func newPtxList(strict bool) *ptxList {
+	return &ptxList{
+		strict:  strict,
+		txs:     newPtxReadyMap(),
+	}
+}
 
+func (l *ptxList) Overlaps(tx *types.Transaction) bool {
+	return l.txs.Get(tx.Nonce()) != nil
+}
 
+func (l *ptxList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
+	l.txs.Put(tx)
+	return true, nil
+}
+
+func (l *ptxList) Forward(threshold uint64) types.Transactions {
+	return l.txs.Forward(threshold)
+}
+
+func (l *ptxList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions, types.Transactions) {
+	// todo: consider if you need.
+	return nil, nil
+}
+
+func (l *ptxList) Cap(threshold int) types.Transactions {
+	return l.txs.Cap(threshold)
+}
 
 
 
