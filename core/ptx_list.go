@@ -1,6 +1,9 @@
 package core
 
-import "github.com/ethereum/go-ethereum/core/types"
+import (
+	"container/heap"
+	"github.com/ethereum/go-ethereum/core/types"
+)
 
 // indexHeap is a heap.Interface implementation over 64bit unsigned integers for
 // retrieving sorted transactions from the possibly gapped future queue.
@@ -35,6 +38,21 @@ func newPtxReadyMap() *ptxReadyMap {
 		items: make(map[uint64]*types.Transaction),
 		index: new(indexHeap),
 	}
+}
+
+// Get retrieves the current transactions associated with the given index.
+func (m *ptxReadyMap) Get(index uint64) *types.Transaction {
+	return m.items[index]
+}
+
+// Put inserts a new transaction into the map, also updating the map's nonce
+// index. If a transaction already exists with the same nonce, it's overwritten.
+func (m *ptxReadyMap) Put(tx *types.Transaction) {
+	index := tx.Nonce()
+	if m.items[index] == nil {
+		heap.Push(m.index, index)
+	}
+	m.items[index], m.cache = tx, nil
 }
 
 
