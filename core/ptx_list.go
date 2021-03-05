@@ -159,8 +159,49 @@ func (m *ptxReadyMap) Remove(nonce uint64) bool {
 	return true
 }
 
+func (m *ptxReadyMap) Ready(start uint64) types.Transactions {
+	if m.index.Len() == 0 || (*m.index)[0] > start {
+		return nil
+	}
+	var ready types.Transactions
+	for next := (*m.index)[0]; m.index.Len() > 0 && (*m.index)[0] == next; next++ {
+		ready = append(ready, m.items[next])
+		delete(m.items, next)
+		heap.Pop(m.index)
+	}
+	m.cache = nil
+	return ready
+}
 
+func (m *ptxReadyMap) Len() int {
+	return len(m.items)
+}
 
+func (m *ptxReadyMap) flatten() types.Transactions {
+	// If the sorting was not cached yet, create and cache it
+	if m.cache == nil {
+		m.cache = make(types.Transactions, 0, len(m.items))
+		for _, tx := range m.items {
+			m.cache = append(m.cache, tx)
+		}
+		sort.Sort(types.TxByNonce(m.cache))
+	}
+	return m.cache
+}
+
+func (m *ptxReadyMap) Flatten() types.Transactions {
+	cache := m.flatten()
+	txs := make(types.Transactions, len(cache))
+	copy(txs, cache)
+	return txs
+}
+
+// LastElement returns the last element of a flattened list, thus,
+// the pending transaction with the highest nonce
+func (m *ptxReadyMap) LastElement() *types.Transaction {
+	cache := m.flatten()
+	return cache[len(cache)-1]
+}
 
 
 
