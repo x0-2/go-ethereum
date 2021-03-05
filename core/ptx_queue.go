@@ -115,3 +115,11 @@ func (t *ptxLookup) RemoteCount() int {
 	return len(t.remotes)
 }
 
+// Slots returns the current number of slots used in the lookup.
+func (t *ptxLookup) Slots() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return t.slots
+}
+
