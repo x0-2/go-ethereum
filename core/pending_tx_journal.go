@@ -97,3 +97,14 @@ func (journal *pendingTxJournal) load(add func([]*types.Transaction) []error) er
 
 	return failure
 }
+
+// insert adds the specified pending transaction to the local disk journal.
+func (journal *pendingTxJournal) insert(tx *types.Transaction) error {
+	if journal.writer == nil {
+		return errNoPendingActiveJournal
+	}
+	if err := rlp.Encode(journal.writer, tx); err != nil {
+		return err
+	}
+	return nil
+}
