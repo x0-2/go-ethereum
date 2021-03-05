@@ -55,6 +55,24 @@ func (m *ptxReadyMap) Put(tx *types.Transaction) {
 	m.items[index], m.cache = tx, nil
 }
 
+// Forward removes all pending transactions from the map with a nonce lower than the
+// provided threshold. Every removed pending transaction is returned for any post-removal
+// maintenance.
+func (m *ptxReadyMap) Forward(threshold uint64) types.Transactions {
+	var removed types.Transactions
+
+	// Pop off heap items until the threshold is reached
+	for m.index.Len() > 0 && (*m.index)[0] < threshold {
+		nonce := heap.Pop(m.index).(uint64)
+		removed = append(removed, m.items[nonce])
+		delete(m.items, nonce)
+	}
+	// If we had a cached order, shift the front
+	if m.cache != nil {
+		m.cache = m.cache[len(removed):]
+	}
+	return removed
+}
 
 
 
