@@ -123,3 +123,30 @@ func (t *ptxLookup) Slots() int {
 	return t.slots
 }
 
+// Add adds a pending transaction to the lookup.
+func (t *ptxLookup) Add(tx *types.Transaction, local bool) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.slots += numSlots(tx)
+	slotsGauge.Update(int64(t.slots))
+
+	t.remotes[tx.Hash()] = tx
+}
+
+// Remove removes a pending transaction from the lookup.
+func (t *ptxLookup) Remove(hash common.Hash) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	tx, ok := t.remotes[hash]
+	if !ok {
+		log.Error("No pending transaction found to be deleted", "hash", hash)
+		return
+	}
+	t.slots -= numSlots(tx)
+	slotsGauge.Update(int64(t.slots))
+
+	//delete(t.locals, hash)
+	delete(t.remotes, hash)
+}
