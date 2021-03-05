@@ -3,6 +3,7 @@ package core
 import (
 	"container/heap"
 	"github.com/ethereum/go-ethereum/core/types"
+	"sort"
 )
 
 // indexHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -111,6 +112,31 @@ func (m *ptxReadyMap) filter(filter func(*types.Transaction) bool) types.Transac
 		m.cache = nil
 	}
 	return removed
+}
+
+// Cap places a hard limit on the number of items, returning
+// all transactions exceeding that limit.
+func (m *ptxReadyMap) Cap(threshold int) types.Transactions {
+	// Short circuit if the number of items is under the limit
+	if len(m.items) <= threshold {
+		return nil
+	}
+	// Otherwise gather and drop the highest nonce'd transactions
+	var drops types.Transactions
+
+	sort.Sort(*m.index)
+	for size := len(m.items); size > threshold; size-- {
+		drops = append(drops, m.items[(*m.index)[size-1]])
+		delete(m.items, (*m.index)[size-1])
+	}
+	*m.index = (*m.index)[:threshold]
+	heap.Init(m.index)
+
+	// If we had a cache, shift the back
+	if m.cache != nil {
+		m.cache = m.cache[:len(m.cache)-len(drops)]
+	}
+	return drops
 }
 
 
