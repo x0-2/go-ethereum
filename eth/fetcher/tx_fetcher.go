@@ -275,6 +275,7 @@ func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) 
 		underpriced int64
 		otherreject int64
 	)
+	// todo: data collection point
 	errs := f.addTxs(txs)
 	for i, err := range errs {
 		if err != nil {
