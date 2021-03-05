@@ -16,3 +16,12 @@ type PtxQueueConfig struct {
 	GlobalQueue uint64
 	Lifetime    time.Duration
 }
+
+// DefaultPtxQueueConfig contains the default configurations
+// for the ptx queue.
+var DefaultPtxQueueConfig = PtxQueueConfig{
+	Journal:     "pending.rlp",
+	ReJournal:   time.Hour,
+	GlobalQueue: 1024,
+	Lifetime:    3 * time.Hour,
+}
