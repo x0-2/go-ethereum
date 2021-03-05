@@ -2,7 +2,11 @@ package core
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"sync"
 	"time"
 )
 
@@ -40,4 +44,19 @@ func (config *PtxQueueConfig) sanitize() PtxQueueConfig {
 		conf.Lifetime = DefaultTxPoolConfig.Lifetime
 	}
 	return conf
+}
+
+type PtxQueue struct {
+	config  PtxQueueConfig
+	ptxFeed event.Feed
+	mu      sync.RWMutex
+
+	journal *pendingTxJournal
+	queue   map[common.Address]*ptxList
+}
+
+type ptxLookup struct {
+	slots   int
+	lock    sync.RWMutex
+	remotes map[common.Hash]*types.Transaction
 }
