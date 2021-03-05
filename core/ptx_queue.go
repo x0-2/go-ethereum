@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"sync"
 	"time"
 )
@@ -53,6 +54,37 @@ type PtxQueue struct {
 
 	journal *pendingTxJournal
 	queue   map[common.Address]*ptxList
+	all     *ptxLookup
+
+	wg sync.WaitGroup
+}
+
+// NewPtxQueue creates a new pending transaction queue to gather, sort and filter
+// inbound pending transactions from the network.
+func NewPtxQueue(config PtxQueueConfig, chainconfig *params.ChainConfig, chain blockChain) *PtxQueue {
+	return nil
+}
+
+// loop is the pending transaction queue's main event loop, waiting for and reacting to
+// outside blockchain events as well as for various reporting and pending transaction
+// eviction events.
+func (queue *PtxQueue) loop() {
+	defer queue.wg.Done()
+
+	
+}
+
+// Stop terminates the transaction queue.
+func (queue *PtxQueue) Stop() {
+	//queue.scope.Close()
+
+	//queue.chainHeadSub.Unsubscribe()
+	queue.wg.Wait()
+
+	if queue.journal != nil {
+		queue.journal.close()
+	}
+	log.Info("Pending Transaction queue stopped")
 }
 
 type ptxLookup struct {
