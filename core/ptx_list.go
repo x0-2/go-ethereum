@@ -139,7 +139,25 @@ func (m *ptxReadyMap) Cap(threshold int) types.Transactions {
 	return drops
 }
 
-
+// Remove deletes a pending transaction from the maintained map,
+// returning whether the pending transaction was found.
+func (m *ptxReadyMap) Remove(nonce uint64) bool {
+	// Short circuit if no pending transaction is present
+	_, ok := m.items[nonce]
+	if !ok {
+		return false
+	}
+	// Otherwise delete the pending transaction and fix the heap index
+	for i := 0; i < m.index.Len(); i++ {
+		if (*m.index)[i] == nonce {
+			heap.Remove(m.index, i)
+			break
+		}
+	}
+	delete(m.items, nonce)
+	m.cache = nil
+	return true
+}
 
 
 
