@@ -71,7 +71,39 @@ func NewPtxQueue(config PtxQueueConfig, chainconfig *params.ChainConfig, chain b
 func (queue *PtxQueue) loop() {
 	defer queue.wg.Done()
 
-	
+	var (
+		//prevPending, prevQueued, prevStales int
+		report  = time.NewTicker(statsReportInterval)
+		evict   = time.NewTicker(evictionInterval)
+		journal = time.NewTicker(queue.config.ReJournal)
+	)
+	defer report.Stop()
+	defer evict.Stop()
+	defer journal.Stop()
+
+	for {
+		select {
+
+		// Handle inactive account transaction eviction
+		case <-report.C:
+		// todo: Continuous transaction sending.
+
+		// Handle local transaction journal rotation
+		case <-journal.C:
+			if queue.journal != nil {
+				queue.mu.Lock()
+				if err := queue.journal.rotate(queue.local()); err != nil {
+					log.Warn("Failed to rotate local tx journal", "err", err)
+				}
+				queue.mu.Unlock()
+			}
+		}
+	}
+}
+
+func (pool *PtxQueue) local() map[common.Address]types.Transactions {
+	txs := make(map[common.Address]types.Transactions)
+	return txs
 }
 
 // Stop terminates the transaction queue.
