@@ -119,6 +119,25 @@ func (queue *PtxQueue) Stop() {
 	log.Info("Pending Transaction queue stopped")
 }
 
+// Stats retrieves the current queue stats, namely the number of
+// pending and the number of queued (non-executable) transactions.
+func (queue *PtxQueue) Stats() (int, int) {
+	queue.mu.RLock()
+	defer queue.mu.RUnlock()
+
+	return queue.stats()
+}
+
+func (queue *PtxQueue) stats() (int, int) {
+	pending := 0
+	// todo: pending, consider.
+	queued := 0
+	for _, list := range queue.queue {
+		queued += list.Len()
+	}
+	return pending, queued
+}
+
 type ptxLookup struct {
 	slots   int
 	lock    sync.RWMutex
