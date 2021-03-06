@@ -186,6 +186,18 @@ func (queue *PtxQueue) enqueuePtx(hash common.Hash, tx *types.Transaction, local
 	return true, nil
 }
 
+// journalPtx adds the specified pending transaction to the local disk
+// journal if it is deemed to have been sent from a local account.
+func (queue *PtxQueue) journalPtx(from common.Address, tx *types.Transaction) {
+	// Only journal if it's enabled and the transaction is local
+	if queue.journal == nil {
+		return
+	}
+	if err := queue.journal.insert(tx); err != nil {
+		log.Warn("Failed to journal local pendng transaction", "err", err)
+	}
+}
+
 type ptxLookup struct {
 	slots   int
 	lock    sync.RWMutex
