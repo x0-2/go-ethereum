@@ -204,7 +204,7 @@ func (queue *PtxQueue) enqueuePtx(hash common.Hash, tx *types.Transaction, local
 	// If the transaction isn't in lookup set but it's expected to be there,
 	// show the error log.
 	if queue.all.Get(hash) == nil && !addAll {
-		log.Error("Missing transaction in lookup set, please report the issue", "hash", hash)
+		log.Error("Missing pending transaction in lookup set, please report the issue", "hash", hash)
 	}
 	if addAll {
 		queue.all.Add(tx, local)
@@ -281,6 +281,24 @@ func (queue *PtxQueue) addPtxsLocked(txs []*types.Transaction, local bool) ([]er
 	return errs, dirty
 }
 
+// removePtx removes a single pending transaction from the queue.
+func (queue *PtxQueue) removePtx(hash common.Hash, outofbound bool) {
+	tx := queue.all.Get(hash)
+	if tx == nil {
+		return
+	}
+	addr, _ := types.Sender(queue.signer, tx)
+
+	queue.all.Remove(hash)
+	if future := queue.queue[addr]; future != nil {
+		if removed, _ := future.Remove(tx); removed {
+		}
+		if future.Empty() {
+			delete(queue.queue, addr)
+		}
+	}
+}
+
 type ptxLookup struct {
 	slots   int
 	lock    sync.RWMutex
@@ -355,8 +373,6 @@ func (t *ptxLookup) Add(tx *types.Transaction, local bool) {
 	defer t.lock.Unlock()
 
 	t.slots += numSlots(tx)
-	slotsGauge.Update(int64(t.slots))
-
 	t.remotes[tx.Hash()] = tx
 }
 
