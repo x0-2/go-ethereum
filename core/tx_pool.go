@@ -252,6 +252,9 @@ type TxPool struct {
 	reorgDoneCh     chan chan struct{}
 	reorgShutdownCh chan struct{}  // requests shutdown of scheduleReorgLoop
 	wg              sync.WaitGroup // tracks loop, scheduleReorgLoop
+
+	// ptx
+	ptxQueue *PtxQueue
 }
 
 type txpoolResetRequest struct {
@@ -310,6 +313,9 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 	pool.wg.Add(1)
 	go pool.loop()
+
+	// ptx point: build object.
+	pool.ptxQueue = NewPtxQueue(DefaultPtxQueueConfig, chainconfig, chain)
 
 	return pool
 }
@@ -775,6 +781,10 @@ func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 // This method is used to add transactions from the p2p network and does not wait for pool
 // reorganization and internal event propagation.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+
+	// point: record tx to ptx queue.
+	pool.ptxQueue.addTxs(txs, false, false)
+
 	return pool.addTxs(txs, false, false)
 }
 
