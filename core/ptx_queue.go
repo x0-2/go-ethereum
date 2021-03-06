@@ -249,6 +249,7 @@ func (queue *PtxQueue) journalPtx(from common.Address, tx *types.Transaction) {
 // addTxs attempts to queue a batch of transactions if they are valid.
 func (queue *PtxQueue) addTxs(txs []*types.Transaction, local, sync bool) []error {
 	// Filter out known ones without obtaining the pool lock or recovering signatures
+	log.Debug("Catch ptx list", "len", len(txs))
 	var (
 		errs = make([]error, len(txs))
 		news = make([]*types.Transaction, 0, len(txs))
