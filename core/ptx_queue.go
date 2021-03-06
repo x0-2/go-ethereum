@@ -19,6 +19,7 @@ var (
 type PtxQueueConfig struct {
 	Journal     string
 	ReJournal   time.Duration
+	GlobalSlots  uint64
 	GlobalQueue uint64
 	Lifetime    time.Duration
 }
@@ -167,6 +168,31 @@ func (queue *PtxQueue) Pending() (map[common.Address]types.Transactions, error) 
 	return pending, nil
 }
 
+func (queue *PtxQueue) add(tx *types.Transaction, local bool) (replaced bool, err error) {
+	// If the transaction is already known, discard it
+	hash := tx.Hash()
+	if queue.all.Get(hash) != nil {
+		log.Trace("Discarding already known pending transaction", "hash", hash)
+		return false, ErrAlreadyKnown
+	}
+
+	// If the transaction queue is full, discard underpriced transactions
+	if uint64(queue.all.Count()+numSlots(tx)) > queue.config.GlobalSlots+queue.config.GlobalQueue {
+		// todo: Deletion strategy after the queue is full.
+	}
+	// Try to replace an existing transaction in the pending pool
+	from, _ := types.Sender(queue.signer, tx) // already validated
+	// New transaction isn't replacing a pending one, push into queue
+	replaced, err = queue.enqueuePtx(hash, tx, false, true)
+	if err != nil {
+		return false, err
+	}
+	queue.journalPtx(from, tx)
+
+	log.Trace("Queued new future pending transaction", "hash", hash, "from", from, "to", tx.To())
+	return replaced, nil
+}
+
 // enqueuePtx inserts a new pending transaction into the transaction queue.
 func (queue *PtxQueue) enqueuePtx(hash common.Hash, tx *types.Transaction, local bool, addAll bool) (bool, error) {
 	// Try to insert the transaction into the future queue
@@ -196,6 +222,63 @@ func (queue *PtxQueue) journalPtx(from common.Address, tx *types.Transaction) {
 	if err := queue.journal.insert(tx); err != nil {
 		log.Warn("Failed to journal local pendng transaction", "err", err)
 	}
+}
+
+// addTxs attempts to queue a batch of transactions if they are valid.
+func (queue *PtxQueue) addTxs(txs []*types.Transaction, local, sync bool) []error {
+	// Filter out known ones without obtaining the pool lock or recovering signatures
+	var (
+		errs = make([]error, len(txs))
+		news = make([]*types.Transaction, 0, len(txs))
+	)
+	for i, tx := range txs {
+		// If the transaction is known, pre-set the error slot
+		if queue.all.Get(tx.Hash()) != nil {
+			errs[i] = ErrAlreadyKnown
+			continue
+		}
+		// Exclude transactions with invalid signatures as soon as
+		// possible and cache senders in transactions before
+		// obtaining lock
+		_, err := types.Sender(queue.signer, tx)
+		if err != nil {
+			errs[i] = ErrInvalidSender
+			continue
+		}
+		// Accumulate all unknown transactions for deeper processing
+		news = append(news, tx)
+	}
+	if len(news) == 0 {
+		return errs
+	}
+
+	// Process all the new transaction and merge any errors into the original slice
+	queue.mu.Lock()
+	newErrs, _ := queue.addPtxsLocked(news, local)
+	queue.mu.Unlock()
+
+	var nilSlot = 0
+	for _, err := range newErrs {
+		for errs[nilSlot] != nil {
+			nilSlot++
+		}
+		errs[nilSlot] = err
+		nilSlot++
+	}
+	return errs
+}
+
+func (queue *PtxQueue) addPtxsLocked(txs []*types.Transaction, local bool) ([]error, *accountSet) {
+	dirty := newAccountSet(queue.signer)
+	errs := make([]error, len(txs))
+	for i, tx := range txs {
+		replaced, err := queue.add(tx, local)
+		errs[i] = err
+		if err == nil && !replaced {
+			dirty.addTx(tx)
+		}
+	}
+	return errs, dirty
 }
 
 type ptxLookup struct {
