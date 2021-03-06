@@ -31,7 +31,7 @@ type pendingTxJournal struct {
 }
 
 // newPendingTxJournal creates a new pending transaction journal to
-func newPendingTxJournal(path string) *pendingTxJournal {
+func newPtxJournal(path string) *pendingTxJournal {
 	return &pendingTxJournal{
 		path: path,
 	}

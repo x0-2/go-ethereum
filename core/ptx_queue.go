@@ -65,7 +65,29 @@ type PtxQueue struct {
 // NewPtxQueue creates a new pending transaction queue to gather, sort and filter
 // inbound pending transactions from the network.
 func NewPtxQueue(config PtxQueueConfig, chainconfig *params.ChainConfig, chain blockChain) *PtxQueue {
-	return nil
+	// Sanitize the input to ensure no vulnerable gas prices are set
+	config = (&config).sanitize()
+
+	// Create the transaction pool with its initial settings
+	queue := &PtxQueue{
+		config:          config,
+		signer:          types.LatestSigner(chainconfig),
+		queue:           make(map[common.Address]*ptxList),
+		all:             newPtxLookup(),
+	}
+	// clear historical data.
+	queue.truncateQueue()
+
+	if config.Journal != "" {
+		queue.journal = newPtxJournal(config.Journal)
+		// todo: Temporary data, do not need to save temporarily.
+	}
+
+	// Subscribe events from blockchain and start the main event loop.
+	queue.wg.Add(1)
+	go queue.loop()
+
+	return queue
 }
 
 // loop is the pending transaction queue's main event loop, waiting for and reacting to
