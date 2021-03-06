@@ -293,8 +293,17 @@ func (queue *PtxQueue) removePtx(hash common.Hash, outofbound bool) {
 	if future := queue.queue[addr]; future != nil {
 		if removed, _ := future.Remove(tx); removed {
 		}
+		// If there is no record, delete it.
 		if future.Empty() {
 			delete(queue.queue, addr)
+		}
+	}
+}
+
+func (queue *PtxQueue) truncateQueue() {
+	for _, list := range queue.queue {
+		for _, tx := range list.Flatten() {
+			queue.removePtx(tx.Hash(), true)
 		}
 	}
 }
