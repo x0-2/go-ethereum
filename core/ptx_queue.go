@@ -52,6 +52,8 @@ type PtxQueue struct {
 	ptxFeed event.Feed
 	mu      sync.RWMutex
 
+	signer types.Signer
+
 	journal *pendingTxJournal
 	queue   map[common.Address]*ptxList
 	all     *ptxLookup
@@ -163,6 +165,25 @@ func (queue *PtxQueue) Pending() (map[common.Address]types.Transactions, error) 
 		pending[addr] = list.Flatten()
 	}
 	return pending, nil
+}
+
+// enqueuePtx inserts a new pending transaction into the transaction queue.
+func (queue *PtxQueue) enqueuePtx(hash common.Hash, tx *types.Transaction, local bool, addAll bool) (bool, error) {
+	// Try to insert the transaction into the future queue
+	from, _ := types.Sender(queue.signer, tx) // already validated
+	if queue.queue[from] == nil {
+		queue.queue[from] = newPtxList(false)
+	}
+
+	// If the transaction isn't in lookup set but it's expected to be there,
+	// show the error log.
+	if queue.all.Get(hash) == nil && !addAll {
+		log.Error("Missing transaction in lookup set, please report the issue", "hash", hash)
+	}
+	if addAll {
+		queue.all.Add(tx, local)
+	}
+	return true, nil
 }
 
 type ptxLookup struct {
