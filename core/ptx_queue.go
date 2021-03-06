@@ -153,6 +153,18 @@ func (queue *PtxQueue) Content() (map[common.Address]types.Transactions, map[com
 	return pending, queued
 }
 
+func (queue *PtxQueue) Pending() (map[common.Address]types.Transactions, error) {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+
+	pending := make(map[common.Address]types.Transactions)
+	// the queue stored the pending tx list.
+	for addr, list := range queue.queue {
+		pending[addr] = list.Flatten()
+	}
+	return pending, nil
+}
+
 type ptxLookup struct {
 	slots   int
 	lock    sync.RWMutex
